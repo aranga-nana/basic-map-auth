@@ -2,7 +2,7 @@
 
 This project is a runnable TypeScript example of how to protect an MCP server using GitHub as an OAuth authorization server. It teaches the full `.well-known` discovery pattern: how MCP clients like VS Code and IntelliJ find your authorization server automatically, why scopes and grant types matter, and how the browser-based login popup works end-to-end.
 
-The server exposes two MCP tools: `get_status` (returns `System Online`) and `java_expert_answer` (forwards a Java question to a Copilot session with Java-specific instructions).
+The server exposes two MCP tools: `get_status` (returns server health, Copilot quota usage, and today's locally observed usage) and `java_expert_answer` (forwards a Java question to a Copilot session with Java-specific instructions).
 
 ---
 
@@ -277,11 +277,11 @@ For IntelliJ-style MCP clients, the same discovery endpoints allow the IDE to op
 
 ### `get_status`
 
-This is a simple health-style MCP tool that returns:
+This tool now reports:
 
-```text
-System Online
-```
+- server health (`System Online`)
+- Copilot quota-period usage, including `premium_interactions`
+- locally observed usage for the current day, recorded from Java tool sessions
 
 ### `java_expert_answer`
 
@@ -297,10 +297,15 @@ The current implementation uses:
 
 ```text
 src/
-   index.ts                         Express app, MCP server setup, tool registration
-   javaExpertInstructions.ts       Java-specific system instructions for Copilot sessions
-   middleware/
-      validateGitHub.ts             GitHub bearer token validation middleware
+  index.ts                         Express app, MCP server setup, tool registration
+  javaExpertInstructions.ts        Java-specific system instructions for Copilot sessions
+  middleware/
+    validateGitHub.ts             GitHub bearer token validation middleware
+  tools/
+    registerJavaExpertTool.ts     Java tool registration and Copilot session handling
+    registerStatusTool.ts         Status tool registration with Copilot quota lookup
+  usage/
+    dailyUsageStore.ts            Local per-day Copilot usage ledger for this server
 ```
 
 ## Notes and limitations
@@ -310,3 +315,4 @@ src/
 - `POST /mcp` is the only authenticated endpoint. The discovery endpoints are public.
 - The README includes production-style examples for public deployment, but the checked-in code is a local example server.
 - The current implementation does not advertise `offline_access` and does not include a `resource_name` field in the protected-resource metadata.
+- Daily usage is local to this server instance and reflects usage observed through `java_expert_answer`; account-wide daily usage is not exposed by this example server.

@@ -27,3 +27,5 @@ coverage/
 # Local
 .env.local
 .env.*.local
+.copilot-usage.json
+examples/

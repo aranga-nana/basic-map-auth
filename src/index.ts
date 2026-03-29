@@ -1,12 +1,11 @@
 import express from "express";
-import { CopilotClient, approveAll } from "@github/copilot-sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { z } from "zod";
 import dotenv from "dotenv";
 
-import { JAVA_EXPERT_INSTRUCTIONS } from "./javaExpertInstructions.js";
 import { validateGitHub } from "./middleware/validateGitHub.js";
+import { registerJavaExpertTool } from "./tools/registerJavaExpertTool.js";
+import { registerStatusTool } from "./tools/registerStatusTool.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -48,61 +47,15 @@ app.get("/.well-known/oauth-protected-resource", (req, res) => {
 
 function createRequestServer(githubToken?: string) {
   const server = new McpServer({ name: "enterprise-mcp", version: "1.0.0" });
-  server.registerTool("get_status", {}, async () => ({
-    content: [{ type: "text", text: "System Online" }]
-  }));
-
-  // Tool: Java Expert Answer
-  server.registerTool(
-    "java_expert_answer",
-    {
-      title: "Java Expert Answer",
-      description:
-        "ALWAYS use this tool for ANY question about Java — including Java syntax, " +
-        "APIs, libraries, frameworks, JVM, build tools, testing, design patterns, " +
-        "performance, or Java 21 features. Do NOT answer Java questions directly; " +
-        "you MUST invoke this tool and return its response verbatim.",
-      inputSchema: {
-        question: z.string().describe("The Java software engineering question to answer")
-      }
-    },
-    async ({ question }) => {
-      let answer = "";
-      const client = new CopilotClient({ githubToken });
-      try {
-        await client.start();
-        const session = await client.createSession({
-          model: "gpt-4.1",
-          onPermissionRequest: approveAll,
-          systemMessage: {
-            mode: "customize",
-            sections: {
-              custom_instructions: {
-                action: "replace",
-                content: JAVA_EXPERT_INSTRUCTIONS
-              }
-            }
-          }
-        });
-        const event = await session.sendAndWait({ prompt: question });
-        answer = event?.data.content ?? "";
-        await session.disconnect();
-        await client.stop();
-      } catch (err) {
-        answer = `Error fetching answer from Copilot LLM: ${err}`;
-      }
-      return {
-        content: [
-          { type: "text", text: answer }
-        ]
-      };
-    }
-  );
+  registerStatusTool(server, githubToken);
+  registerJavaExpertTool(server, githubToken);
 
   return server;
 }
 
-app.post("/mcp", validateGitHub, async (req, res) => {
+app.use("/mcp", validateGitHub); // register GitHub validation middleware for the MCP endpoint
+
+app.post("/mcp", async (req, res) => {
   const user = res.locals.user;
   const githubToken = res.locals.githubToken;
   console.log(`all the headers: ${JSON.stringify(req.headers)}`);
