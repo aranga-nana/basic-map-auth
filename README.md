@@ -287,9 +287,13 @@ This tool now reports:
 
 This tool creates a Copilot client session using `@github/copilot-sdk`, injects custom Java-focused instructions, sends the provided question, and returns the resulting answer text.
 
+Progress updates are emitted through MCP `notifications/progress` while the tool runs; the final tool response contains only the answer text.
+
+Reasoning-driven progress notifications are currently sent as short step messages with a truncated preview of reasoning deltas.
+
 The current implementation uses:
 
-- model: `gpt-4.1`
+- model: `gpt-5.4`
 - permission handling: `approveAll`
 - custom system instructions defined in `src/javaExpertInstructions.ts`
 
